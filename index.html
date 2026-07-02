@@ -1,0 +1,171 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>RETRO QUEST — AI 게임 마스터 TRPG</title>
+<link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+<div id="crt">
+  <div class="scanlines"></div>
+  <div class="vignette"></div>
+
+  <!-- ══════════ 타이틀 화면 ══════════ -->
+  <section id="screen-title" class="screen active">
+    <div class="title-wrap">
+      <pre class="logo">
+██████╗ ███████╗████████╗██████╗  ██████╗
+██╔══██╗██╔════╝╚══██╔══╝██╔══██╗██╔═══██╗
+██████╔╝█████╗     ██║   ██████╔╝██║   ██║
+██╔══██╗██╔══╝     ██║   ██╔══██╗██║   ██║
+██║  ██║███████╗   ██║   ██║  ██║╚██████╔╝
+╚═╝  ╚═╝╚══════╝   ╚═╝   ╚═╝  ╚═╝ ╚═════╝
+ ██████╗ ██╗   ██╗███████╗███████╗████████╗
+██╔═══██╗██║   ██║██╔════╝██╔════╝╚══██╔══╝
+██║   ██║██║   ██║█████╗  ███████╗   ██║
+██║▄▄ ██║██║   ██║██╔══╝  ╚════██║   ██║
+╚██████╔╝╚██████╔╝███████╗███████║   ██║
+ ╚══▀▀═╝  ╚═════╝ ╚══════╝╚══════╝   ╚═╝</pre>
+      <p class="subtitle">— AI 게임 마스터와 함께하는 테이블탑 RPG —</p>
+      <div class="title-menu">
+        <button id="btn-new-game" class="menu-btn">&gt; 새로운 모험</button>
+        <button id="btn-continue" class="menu-btn" style="display:none">&gt; 이어서 모험하기</button>
+      </div>
+      <p class="blink press-start">PRESS START</p>
+      <p class="copyright">v1.0 · 1-2 PLAYERS · POWERED BY AI</p>
+    </div>
+  </section>
+
+  <!-- ══════════ 설정 화면 ══════════ -->
+  <section id="screen-setup" class="screen">
+    <div class="panel">
+      <h2 class="panel-title">░ 게임 설정 ░</h2>
+
+      <div class="setup-block">
+        <h3>[1] 게임 마스터 AI</h3>
+        <div class="row">
+          <select id="sel-provider"></select>
+          <select id="sel-model"></select>
+        </div>
+        <div class="row" id="row-apikey">
+          <input type="password" id="inp-apikey" placeholder="API 키를 입력하세요" autocomplete="off">
+          <label class="chk"><input type="checkbox" id="chk-savekey" checked> 이 브라우저에 키 저장</label>
+        </div>
+        <p class="hint" id="provider-hint"></p>
+      </div>
+
+      <div class="setup-block">
+        <h3>[2] 플레이어 수</h3>
+        <div class="row">
+          <button class="opt-btn player-count selected" data-count="1">1인 플레이</button>
+          <button class="opt-btn player-count" data-count="2">2인 플레이</button>
+        </div>
+      </div>
+
+      <div class="setup-block">
+        <h3>[3] 세계관 선택</h3>
+        <div class="theme-grid" id="theme-grid"></div>
+        <textarea id="inp-custom-theme" placeholder="원하는 세계관을 자유롭게 설명해 주세요. (예: 조선시대 좀비 아포칼립스, 우주 해적단...)" style="display:none"></textarea>
+      </div>
+
+      <div class="row nav-row">
+        <button id="btn-setup-back" class="menu-btn small">&lt; 뒤로</button>
+        <button id="btn-setup-next" class="menu-btn small primary">캐릭터 생성 &gt;</button>
+      </div>
+      <p class="error-msg" id="setup-error"></p>
+    </div>
+  </section>
+
+  <!-- ══════════ 캐릭터 생성 화면 ══════════ -->
+  <section id="screen-create" class="screen">
+    <div class="panel wide">
+      <h2 class="panel-title">░ 캐릭터 생성 ░</h2>
+      <div id="create-container" class="create-container"></div>
+      <div class="row nav-row">
+        <button id="btn-create-back" class="menu-btn small">&lt; 뒤로</button>
+        <button id="btn-create-start" class="menu-btn small primary">모험 시작 &gt;</button>
+      </div>
+      <p class="error-msg" id="create-error"></p>
+    </div>
+  </section>
+
+  <!-- ══════════ 게임 화면 ══════════ -->
+  <section id="screen-game" class="screen">
+    <header id="game-header">
+      <span class="hud-title">RETRO QUEST</span>
+      <span class="hud-loc" id="hud-location">???</span>
+      <span class="hud-right">
+        <span id="hud-turn">TURN 1</span>
+        <button id="btn-sound" class="icon-btn" title="사운드 켜기/끄기">♪ ON</button>
+        <button id="btn-quit" class="icon-btn" title="저장하고 타이틀로">■ 저장&amp;나가기</button>
+      </span>
+    </header>
+
+    <div id="game-body">
+      <main id="log-area">
+        <div id="log"></div>
+        <div id="gm-thinking" style="display:none">
+          <span class="blink">▓</span> 게임 마스터가 이야기를 준비하는 중<span class="dots"></span>
+        </div>
+      </main>
+
+      <aside id="sidebar">
+        <div id="party-panel"></div>
+        <div class="side-block">
+          <h4>─ 자유 주사위 ─</h4>
+          <div class="free-dice">
+            <button class="dice-btn" data-die="4">d4</button>
+            <button class="dice-btn" data-die="6">d6</button>
+            <button class="dice-btn" data-die="8">d8</button>
+            <button class="dice-btn" data-die="10">d10</button>
+            <button class="dice-btn" data-die="12">d12</button>
+            <button class="dice-btn" data-die="20">d20</button>
+          </div>
+          <div id="free-dice-result">─</div>
+        </div>
+      </aside>
+    </div>
+
+    <footer id="action-area">
+      <div id="active-player-tag"></div>
+
+      <!-- 선택지 모드 -->
+      <div id="choices-box"></div>
+
+      <!-- 주사위 판정 모드 -->
+      <div id="dice-check-box" style="display:none">
+        <div id="dice-check-info"></div>
+        <div class="dice-roll-row">
+          <div id="dice-display">?</div>
+          <button id="btn-roll-check" class="menu-btn primary">▶ 주사위 굴리기 (d20)</button>
+        </div>
+      </div>
+
+      <!-- 자유 입력 -->
+      <div id="free-input-row">
+        <span class="prompt-mark">&gt;</span>
+        <input type="text" id="inp-action" placeholder="직접 행동을 입력하세요..." maxlength="200" autocomplete="off">
+        <button id="btn-send" class="menu-btn small primary">실행</button>
+      </div>
+    </footer>
+  </section>
+
+  <!-- ══════════ 게임 오버 오버레이 ══════════ -->
+  <div id="gameover-overlay" style="display:none">
+    <div class="panel gameover-panel">
+      <pre id="gameover-art"></pre>
+      <h2 id="gameover-title"></h2>
+      <p id="gameover-epilogue"></p>
+      <button id="btn-to-title" class="menu-btn">&gt; 타이틀로 돌아가기</button>
+    </div>
+  </div>
+</div>
+
+<script src="js/audio.js"></script>
+<script src="js/api.js"></script>
+<script src="js/game.js"></script>
+<script src="js/ui.js"></script>
+<script src="js/main.js"></script>
+</body>
+</html>
