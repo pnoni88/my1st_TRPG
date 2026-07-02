@@ -273,9 +273,18 @@ textarea { width: 100%; min-height: 80px; margin-top: 10px; resize: vertical; }
   background: rgba(0, 0, 0, 0.4);
   z-index: 10;
 }
-.hud-title { color: var(--amber); letter-spacing: 2px; }
-.hud-loc { color: var(--cyan); flex: 1; text-align: center; font-size: 14px; }
-.hud-right { display: flex; gap: 10px; align-items: center; font-size: 13px; }
+.hud-title { color: var(--amber); letter-spacing: 2px; white-space: nowrap; }
+.hud-loc {
+  color: var(--cyan);
+  flex: 1;
+  min-width: 0;
+  text-align: center;
+  font-size: 14px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.hud-right { display: flex; gap: 10px; align-items: center; font-size: 13px; white-space: nowrap; }
 #hud-turn { color: var(--gray); }
 .icon-btn {
   background: transparent;
@@ -284,6 +293,7 @@ textarea { width: 100%; min-height: 80px; margin-top: 10px; resize: vertical; }
   padding: 3px 10px;
   cursor: pointer;
   font-size: 12px;
+  white-space: nowrap;
 }
 .icon-btn:hover { background: var(--green-dark); }
 
@@ -458,4 +468,8 @@ textarea { width: 100%; min-height: 80px; margin-top: 10px; resize: vertical; }
     order: 2;
   }
   #log-area { order: 1; }
+  #game-header { gap: 8px; padding: 6px 10px; }
+  .hud-title { display: none; }
+  #action-area { padding: 8px 10px; }
+  .panel { padding: 20px 16px; }
 }
