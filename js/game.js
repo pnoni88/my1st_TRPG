@@ -171,6 +171,7 @@ ${playerDesc}
 
 ## 응답 형식 (매우 중요)
 반드시 아래 스키마의 JSON 객체 **하나만** 출력하세요. JSON 외의 텍스트, 마크다운 코드펜스, 주석을 절대 포함하지 마세요.
+JSON 객체를 닫는 } 뒤에는 아무것도 출력하지 말고 즉시 응답을 끝내세요. 다음 턴의 대화(user 메시지, 주사위 결과, 추가 assistant 응답 등)를 예측하거나 이어 쓰는 것은 금지입니다.
 
 {
   "narration": "상황 묘사 (3~6문장, 생생하고 몰입감 있게)",
@@ -194,6 +195,32 @@ function buildStartMessage() {
   return `[게임 시작] 플레이어: ${names}. 세계관에 맞는 흥미진진한 도입부와 함께 모험을 시작해 주세요. 첫 장면을 묘사하고 선택지를 제시하세요.`;
 }
 
+/* ── 텍스트에서 첫 번째 완전한 JSON 객체 추출 (중괄호 균형 스캔) ──
+   모델이 JSON 뒤에 가짜 대화 연속 등 잉여 텍스트를 붙여도 첫 객체만 안전하게 분리한다. */
+function extractFirstJson(text) {
+  for (let i = text.indexOf('{'); i !== -1; i = text.indexOf('{', i + 1)) {
+    let depth = 0, inStr = false, esc = false;
+    for (let j = i; j < text.length; j++) {
+      const ch = text[j];
+      if (esc) { esc = false; continue; }
+      if (inStr) {
+        if (ch === '\\') esc = true;
+        else if (ch === '"') inStr = false;
+        continue;
+      }
+      if (ch === '"') inStr = true;
+      else if (ch === '{') depth++;
+      else if (ch === '}') {
+        depth--;
+        if (depth === 0) {
+          try { return JSON.parse(text.slice(i, j + 1)); } catch (e) { break; }
+        }
+      }
+    }
+  }
+  return null;
+}
+
 /* ── GM 응답 파싱 (관대한 파서) ── */
 function parseGMResponse(raw) {
   let text = String(raw || '').trim();
@@ -204,22 +231,26 @@ function parseGMResponse(raw) {
   try {
     data = JSON.parse(text);
   } catch (e) {
-    const first = text.indexOf('{');
-    const last = text.lastIndexOf('}');
-    if (first !== -1 && last > first) {
-      try { data = JSON.parse(text.slice(first, last + 1)); } catch (e2) { /* 아래 폴백 */ }
-    }
+    data = extractFirstJson(text);
   }
 
   if (!data || typeof data !== 'object' || typeof data.narration !== 'string') {
-    // JSON 파싱 실패: 원문을 내레이션으로 취급
+    // 최후 폴백 1: 깨진 JSON에서 narration 필드만 정규식으로 추출
+    const m = text.match(/"narration"\s*:\s*"((?:[^"\\]|\\.)*)"/);
+    let narration = null;
+    if (m) {
+      try { narration = JSON.parse('"' + m[1] + '"'); } catch (e) { /* 무시 */ }
+    }
+    // 최후 폴백 2: JSON 구문이 전혀 없으면 원문을 내레이션으로 취급
+    if (!narration && !text.includes('{')) narration = text;
     return {
-      narration: text || '(GM의 응답을 이해하지 못했습니다. 다시 행동을 입력해 주세요.)',
+      narration: narration || '(GM의 응답 형식이 올바르지 않습니다. 다시 행동을 입력해 주세요.)',
       choices: [],
       dice_check: null,
       updates: [],
       location: G.location,
       game_over: null,
+      _fallback: true,
     };
   }
 
@@ -311,8 +342,18 @@ async function sendToGM(playerText, { isSystemEvent = false } = {}) {
       system: buildSystemPrompt(),
       messages: trimmedHistory(),
     });
-    G.history.push({ role: 'assistant', content: raw });
     parsed = parseGMResponse(raw);
+    // 히스토리에는 정제된 JSON만 저장 — 모델이 붙인 잉여 텍스트(가짜 대화 등)가
+    // 다음 턴 컨텍스트로 들어가 같은 실수를 반복하는 것을 방지
+    const clean = parsed._fallback ? raw : JSON.stringify({
+      narration: parsed.narration,
+      choices: parsed.choices,
+      dice_check: parsed.dice_check,
+      updates: parsed.updates,
+      location: parsed.location,
+      game_over: parsed.game_over,
+    });
+    G.history.push({ role: 'assistant', content: clean });
   } catch (err) {
     G.history.pop(); // 실패한 user 메시지 롤백
     UI.setThinking(false);
