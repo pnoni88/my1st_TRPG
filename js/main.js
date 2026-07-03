@@ -43,6 +43,26 @@
     selProvider.value = 'claude';
     onProviderChange();
 
+    // 게임 길이
+    const lenGrid = $('length-grid');
+    lenGrid.innerHTML = '';
+    for (const [key, l] of Object.entries(GAME_LENGTHS)) {
+      const card = document.createElement('button');
+      card.className = 'length-card' + (key === 'standard' ? ' selected' : '');
+      card.dataset.length = key;
+      card.innerHTML = `<span class="l-name">${l.icon} ${l.name}</span><span class="l-time">${l.time} · ${l.turns[0]}~${l.turns[1]}턴</span><span class="l-desc">${l.desc}</span>`;
+      card.addEventListener('click', () => {
+        RetroAudio.select();
+        lenGrid.querySelectorAll('.length-card').forEach(c => c.classList.remove('selected'));
+        card.classList.add('selected');
+      });
+      lenGrid.appendChild(card);
+    }
+
+    // 도파민 모드
+    dopamineLevel = 0;
+    refreshDopamine();
+
     // 테마 그리드
     const grid = $('theme-grid');
     grid.innerHTML = '';
@@ -80,6 +100,41 @@
 
   selProvider.addEventListener('change', () => { RetroAudio.select(); onProviderChange(); });
 
+  /* ── 도파민 모드 스테퍼 ── */
+  let dopamineLevel = 0;
+
+  function refreshDopamine() {
+    const lvl = $('dopa-level');
+    const desc = $('dopa-desc');
+    if (dopamineLevel === 0) {
+      lvl.textContent = 'OFF';
+      lvl.className = '';
+      desc.textContent = '평범한 모험가의 길';
+    } else {
+      lvl.textContent = dopamineLevel >= DOPAMINE_MAX ? 'MAX' : `Lv.${dopamineLevel}`;
+      lvl.className = 'dopa-on';
+      const pct = (dopamineLevel + 1) * 5;
+      desc.textContent = dopamineLevel >= DOPAMINE_MAX
+        ? `대성공 ${20 - dopamineLevel}~20 · 대실패 1~${1 + dopamineLevel} (각 ${pct}%) — 한계까지 짜릿하게!`
+        : `대성공 ${20 - dopamineLevel}~20 · 대실패 1~${1 + dopamineLevel} (각 ${pct}%)`;
+    }
+    $('dopa-minus').disabled = dopamineLevel <= 0;
+    $('dopa-plus').disabled = dopamineLevel >= DOPAMINE_MAX;
+  }
+
+  $('dopa-minus').addEventListener('click', () => {
+    if (dopamineLevel <= 0) return;
+    dopamineLevel--;
+    RetroAudio.select();
+    refreshDopamine();
+  });
+  $('dopa-plus').addEventListener('click', () => {
+    if (dopamineLevel >= DOPAMINE_MAX) return;
+    dopamineLevel++;
+    RetroAudio.select();
+    refreshDopamine();
+  });
+
   document.querySelectorAll('.player-count').forEach(btn => {
     btn.addEventListener('click', () => {
       RetroAudio.select();
@@ -116,6 +171,9 @@
     G.model = selModel.value;
     G.apiKey = key;
     G.playerCount = parseInt(document.querySelector('.player-count.selected').dataset.count, 10);
+    const lenCard = document.querySelector('.length-card.selected');
+    G.lengthKey = lenCard ? lenCard.dataset.length : 'standard';
+    G.dopamine = dopamineLevel;
     G.themeKey = themeKey;
     G.customTheme = $('inp-custom-theme').value.trim();
 
@@ -135,7 +193,10 @@
   }
 
   function initCreateScreen() {
-    createData = Array.from({ length: G.playerCount }, () => ({ name: '', cls: '', stats: null }));
+    createData = Array.from({ length: G.playerCount }, () => ({
+      name: '', cls: '', stats: null, mode: 'dice',
+      manual: { STR: POINT_BUY.start, DEX: POINT_BUY.start, INT: POINT_BUY.start, CHA: POINT_BUY.start },
+    }));
     const box = $('create-container');
     box.innerHTML = '';
     $('create-error').textContent = '';
@@ -159,7 +220,14 @@
           <input type="text" class="inp-cls-custom" maxlength="12" placeholder="직접 입력 (예: 음유시인)" style="margin-top:8px; width:100%;">
         </div>
         <div class="field">
-          <label>능력치 (3d6 × 4)</label>
+          <label>능력치 결정 방식</label>
+          <div class="stat-mode-row">
+            <button class="opt-btn mode-btn selected" data-mode="dice">🎲 주사위 (권장)</button>
+            <button class="opt-btn mode-btn" data-mode="manual">✎ 직접 배분</button>
+          </div>
+          <p class="stat-mode-hint">주사위(3d6×4)는 기대 총합 42! 직접 배분(총 ${POINT_BUY.budget})보다 강한 영웅이 태어날 수 있습니다.</p>
+        </div>
+        <div class="field stat-field-dice">
           <table class="stat-table">
             <tr><td>힘 (STR)</td><td class="stat-val" data-stat="STR">─</td><td class="stat-mod" data-mod="STR"></td></tr>
             <tr><td>민첩 (DEX)</td><td class="stat-val" data-stat="DEX">─</td><td class="stat-mod" data-mod="DEX"></td></tr>
@@ -167,8 +235,23 @@
             <tr><td>매력 (CHA)</td><td class="stat-val" data-stat="CHA">─</td><td class="stat-mod" data-mod="CHA"></td></tr>
           </table>
           <button class="menu-btn small roll-stats-btn">🎲 능력치 굴리기</button>
-          <div class="hp-line">체력(HP): <span class="hp-val">─</span></div>
         </div>
+        <div class="field stat-field-manual" style="display:none">
+          <div class="pb-remaining">남은 포인트: <b class="pb-left"></b> <span class="pb-range">(각 능력치 ${POINT_BUY.min}~${POINT_BUY.max})</span></div>
+          <table class="stat-table">
+            ${['STR', 'DEX', 'INT', 'CHA'].map(s => `
+            <tr>
+              <td>${STAT_NAMES[s]} (${s})</td>
+              <td class="pb-ctrl">
+                <button class="pb-btn" data-stat="${s}" data-d="-1">−</button>
+                <span class="pb-val" data-pbstat="${s}"></span>
+                <button class="pb-btn" data-stat="${s}" data-d="1">＋</button>
+              </td>
+              <td class="stat-mod" data-pbmod="${s}"></td>
+            </tr>`).join('')}
+          </table>
+        </div>
+        <div class="hp-line">체력(HP): <span class="hp-val">─</span></div>
       `;
 
       // 이름
@@ -188,6 +271,49 @@
         card.querySelectorAll('.cls-btn').forEach(b => b.classList.remove('selected'));
         cd.cls = e.target.value.trim();
       });
+
+      // 능력치 결정 방식 전환
+      const calcHp = str => Math.max(14, 20 + statMod(str) * 2);
+      const pbSum = () => Object.values(cd.manual).reduce((a, b) => a + b, 0);
+      const refreshManual = () => {
+        const left = POINT_BUY.budget - pbSum();
+        card.querySelector('.pb-left').textContent = left;
+        for (const s of ['STR', 'DEX', 'INT', 'CHA']) {
+          card.querySelector(`[data-pbstat="${s}"]`).textContent = cd.manual[s];
+          card.querySelector(`[data-pbmod="${s}"]`).textContent = '(' + fmtMod(statMod(cd.manual[s])) + ')';
+        }
+        card.querySelectorAll('.pb-btn').forEach(b => {
+          const v = cd.manual[b.dataset.stat] + parseInt(b.dataset.d, 10);
+          b.disabled = v < POINT_BUY.min || v > POINT_BUY.max || (parseInt(b.dataset.d, 10) > 0 && left <= 0);
+        });
+        if (cd.mode === 'manual') card.querySelector('.hp-val').textContent = calcHp(cd.manual.STR);
+      };
+
+      card.querySelectorAll('.mode-btn').forEach(btn => {
+        btn.addEventListener('click', () => {
+          RetroAudio.select();
+          cd.mode = btn.dataset.mode;
+          card.querySelectorAll('.mode-btn').forEach(b => b.classList.toggle('selected', b === btn));
+          card.querySelector('.stat-field-dice').style.display = cd.mode === 'dice' ? 'block' : 'none';
+          card.querySelector('.stat-field-manual').style.display = cd.mode === 'manual' ? 'block' : 'none';
+          if (cd.mode === 'manual') refreshManual();
+          else card.querySelector('.hp-val').textContent = cd.stats ? cd.maxHp : '─';
+        });
+      });
+
+      card.querySelectorAll('.pb-btn').forEach(btn => {
+        btn.addEventListener('click', () => {
+          const s = btn.dataset.stat;
+          const d = parseInt(btn.dataset.d, 10);
+          const v = cd.manual[s] + d;
+          if (v < POINT_BUY.min || v > POINT_BUY.max) return;
+          if (d > 0 && POINT_BUY.budget - pbSum() <= 0) return;
+          cd.manual[s] = v;
+          RetroAudio.select();
+          refreshManual();
+        });
+      });
+      refreshManual();
 
       // 능력치 굴리기 (애니메이션)
       const rollBtn = card.querySelector('.roll-stats-btn');
@@ -233,7 +359,12 @@
       const cd = createData[i];
       if (!cd.name) { err.textContent = `⚠ 플레이어 ${i + 1}의 이름을 입력해 주세요.`; return; }
       if (!cd.cls) { err.textContent = `⚠ 플레이어 ${i + 1}의 클래스를 선택해 주세요.`; return; }
-      if (!cd.stats) { err.textContent = `⚠ 플레이어 ${i + 1}의 능력치를 굴려 주세요.`; return; }
+      if (cd.mode === 'manual') {
+        const left = POINT_BUY.budget - Object.values(cd.manual).reduce((a, b) => a + b, 0);
+        if (left > 0) { err.textContent = `⚠ 플레이어 ${i + 1}: 남은 포인트 ${left}를 모두 배분해 주세요.`; return; }
+        cd.stats = { ...cd.manual };
+        cd.maxHp = Math.max(14, 20 + statMod(cd.stats.STR) * 2);
+      } else if (!cd.stats) { err.textContent = `⚠ 플레이어 ${i + 1}의 능력치를 굴려 주세요.`; return; }
     }
     err.textContent = '';
 
@@ -250,7 +381,10 @@
   function startAdventure() {
     if (G.provider === 'demo') resetDemo();
     enterGameScreen({ restored: false });
-    UI.addLog('system', `※ 세계관: ${themeName()} · ${G.playerCount}인 플레이 · GM: ${PROVIDERS[G.provider].name}`);
+    UI.addLog('system', `※ 세계관: ${themeName()} · ${G.playerCount}인 플레이 · ${gameLength().name}(${gameLength().time}) · GM: ${PROVIDERS[G.provider].name}`);
+    if (G.dopamine > 0) {
+      UI.addLog('system', `※ ⚡ 도파민 모드 ${G.dopamine >= DOPAMINE_MAX ? 'MAX' : 'Lv.' + G.dopamine} — 대성공 ${critMin()}~20 · 대실패 1~${fumbleMax()}`);
+    }
     UI.addLog('system', '※ 선택지를 고르거나, 아래 입력창에 원하는 행동을 직접 입력할 수 있습니다.');
     UI.addDivider();
     sendToGM(buildStartMessage(), { isSystemEvent: true });

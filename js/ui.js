@@ -152,7 +152,8 @@ const UI = (() => {
       choicesBox.style.display = 'none';
       freeRow.style.display = 'none';
       $('dice-check-info').textContent =
-        `⚡ ${STAT_NAMES[dc.stat]} 판정 — ${dc.reason} (난이도 ${dc.difficulty}, ${p.name}의 보정치 ${fmtMod(mod)})`;
+        `⚡ ${STAT_NAMES[dc.stat]} 판정 — ${dc.reason} (난이도 ${dc.difficulty}, ${p.name}의 보정치 ${fmtMod(mod)})` +
+        (G.dopamine > 0 ? ` · 도파민: 대성공 ${critMin()}↑ 대실패 ${fumbleMax()}↓` : '');
       $('dice-display').textContent = '?';
       $('btn-roll-check').disabled = false;
     } else {

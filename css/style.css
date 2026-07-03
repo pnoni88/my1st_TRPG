@@ -215,6 +215,42 @@ textarea { width: 100%; min-height: 80px; margin-top: 10px; resize: vertical; }
   box-shadow: 0 0 6px rgba(255, 176, 0, 0.4);
 }
 
+/* ─── 도파민 모드 ─── */
+.dopamine-row { gap: 10px; }
+#dopa-level {
+  min-width: 52px;
+  text-align: center;
+  color: var(--gray);
+  border: 1px solid var(--green-dim);
+  padding: 3px 8px;
+  font-size: 15px;
+}
+#dopa-level.dopa-on {
+  color: var(--amber);
+  border-color: var(--amber);
+  text-shadow: 0 0 8px rgba(255, 176, 0, 0.6);
+}
+.dopa-desc { font-size: 13px; color: var(--cyan); }
+
+.length-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(190px, 1fr));
+  gap: 10px;
+}
+.length-card {
+  background: transparent;
+  border: 1px solid var(--green-dim);
+  color: var(--green);
+  padding: 12px;
+  cursor: pointer;
+  text-align: left;
+}
+.length-card:hover { background: var(--green-dark); }
+.length-card.selected { border-color: var(--amber); box-shadow: 0 0 8px rgba(255, 176, 0, 0.35); }
+.length-card .l-name { color: var(--amber); display: block; }
+.length-card .l-time { color: var(--cyan); display: block; font-size: 12px; margin-top: 4px; }
+.length-card .l-desc { font-size: 12px; color: var(--gray); display: block; margin-top: 4px; line-height: 1.4; }
+
 .theme-grid {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(190px, 1fr));
@@ -262,6 +298,34 @@ textarea { width: 100%; min-height: 80px; margin-top: 10px; resize: vertical; }
 .stat-table .stat-mod { color: var(--gray); text-align: right; width: 56px; font-size: 13px; }
 .roll-stats-btn { width: 100%; margin-top: 10px; }
 .hp-line { margin-top: 10px; color: var(--red); font-size: 15px; }
+
+/* ─── 능력치 결정 방식 ─── */
+.stat-mode-row { display: flex; gap: 8px; }
+.stat-mode-row .mode-btn { flex: 1; padding: 6px 10px; font-size: 14px; }
+.stat-mode-hint { font-size: 12px; color: var(--gray); margin-top: 6px; line-height: 1.5; }
+
+.pb-remaining { font-size: 14px; color: var(--cyan); margin-bottom: 4px; }
+.pb-remaining b { color: var(--amber); font-size: 16px; }
+.pb-remaining .pb-range { font-size: 12px; color: var(--gray); }
+.pb-ctrl {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 8px;
+}
+.pb-btn {
+  background: transparent;
+  border: 1px solid var(--green-dim);
+  color: var(--green);
+  width: 28px;
+  height: 26px;
+  cursor: pointer;
+  font-size: 14px;
+  line-height: 1;
+}
+.pb-btn:hover:not(:disabled) { background: var(--green-dark); border-color: var(--green); }
+.pb-btn:disabled { opacity: 0.25; cursor: not-allowed; }
+.pb-val { color: var(--amber); min-width: 26px; text-align: center; }
 
 /* ─── 게임 화면 ─── */
 #game-header {

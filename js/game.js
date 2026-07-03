@@ -28,6 +28,31 @@ const THEMES = {
   },
 };
 
+/* ── 게임 길이 ── */
+const GAME_LENGTHS = {
+  quick: {
+    icon: '⚡', name: '가볍게', time: '10~20분', turns: [6, 12],
+    desc: '한 호흡에 즐기는 짧은 모험. 빠른 전개와 명쾌한 결말.',
+  },
+  standard: {
+    icon: '🔥', name: '적당히', time: '30분~1시간', turns: [15, 25],
+    desc: '기승전결을 제대로 갖춘 표준 모험.',
+  },
+  epic: {
+    icon: '⚔', name: '진지하게', time: '1시간 이상', turns: [30, 50],
+    desc: '반전과 서브플롯이 얽힌 장대한 대모험.',
+  },
+};
+
+/* ── 능력치 직접 배분 (주사위 3d6×4의 기대 총합 42보다 낮게 설정) ── */
+const POINT_BUY = { budget: 36, min: 6, max: 15, start: 8 };
+
+/* ── 도파민 모드: 대성공/대실패 범위 확장 (0 = 꺼짐)
+   확장 폭은 전체 구간(d20 = 20)의 25%인 5단계까지만 허용 → 최대 대성공 15~20, 대실패 1~6 ── */
+const DOPAMINE_MAX = 5;
+function critMin() { return 20 - (G.dopamine || 0); }
+function fumbleMax() { return 1 + (G.dopamine || 0); }
+
 /* ── 게임 상태 ── */
 let G = null;
 
@@ -39,6 +64,8 @@ function newGameState() {
     playerCount: 1,
     themeKey: 'fantasy',
     customTheme: '',
+    lengthKey: 'standard',
+    dopamine: 0,
     players: [],       // {name, cls, stats:{STR,DEX,INT,CHA}, hp, maxHp, inventory:[]}
     history: [],       // API용 [{role, content}]
     logEntries: [],    // 화면 로그 복원용 [{type, text}]
@@ -94,6 +121,20 @@ function themeName() {
   return G.themeKey === 'custom' ? (G.customTheme.slice(0, 30) || '커스텀 세계') : THEMES[G.themeKey].name;
 }
 
+function gameLength() {
+  return GAME_LENGTHS[G.lengthKey] || GAME_LENGTHS.standard;
+}
+
+/* ── 매 턴 GM에게 전달할 진행도 안내 ── */
+function pacingNote() {
+  const [minT, maxT] = gameLength().turns;
+  const t = G.turn;
+  if (t > maxT) return `목표 턴(${maxT}턴) 초과 — 진행 중인 장면을 마무리하고 즉시 결말로 향하세요`;
+  if (t >= minT) return `절정·결말부 (${t}/${maxT}턴) — 클라이맥스를 향해 전개하고 자연스러운 결말을 준비하세요`;
+  if (t >= Math.ceil(minT / 2)) return `전개부 (${t}/${maxT}턴) — 핵심 갈등을 심화시키세요`;
+  return `도입부 (${t}/${maxT}턴) — 세계와 갈등을 자유롭게 펼치세요`;
+}
+
 function statMod(v) { return Math.floor((v - 10) / 2); }
 function fmtMod(m) { return (m >= 0 ? '+' : '') + m; }
 function rollDie(sides) { return 1 + Math.floor(Math.random() * sides); }
@@ -118,12 +159,13 @@ ${themeDesc}
 ${playerDesc}
 
 ## 게임 규칙
-- d20 판정: 주사위(1~20) + 능력치 보정치 >= 난이도 이면 성공. 20은 대성공, 1은 대실패.
+- d20 판정: 주사위(1~20) + 능력치 보정치 >= 난이도 이면 성공. ${G.dopamine > 0 ? `${critMin()}~20은 대성공(난이도 무관 성공), 1~${fumbleMax()}은 대실패(난이도 무관 실패). 플레이어가 극적인 "도파민 모드"를 선택했으므로 대성공/대실패를 더욱 과장되고 극적으로 묘사하세요.` : '20은 대성공, 1은 대실패.'}
 - 능력치 보정치 = (능력치 - 10) / 2 내림. 능력치 키: STR(힘), DEX(민첩), INT(지혜), CHA(매력).
 - 결과가 불확실하고 실패 시 대가가 있는 행동에만 주사위 판정을 요구하세요. 난이도 가이드: 쉬움 8, 보통 12, 어려움 16, 매우 어려움 20.
 - 플레이어가 피해를 입으면 hp_change로 반영하세요 (보통 -1~-5, 치명적이면 -6 이상).
 - HP가 0이 되면 그 캐릭터는 쓰러집니다. 전원이 쓰러지면 게임 오버(defeat)를 선언하세요.
-- 이야기는 기승전결을 갖추고, 대략 15~25턴 안에 자연스러운 결말(victory 또는 defeat)에 도달하도록 전개하세요.
+- 이야기는 기승전결을 갖추고, 대략 ${gameLength().turns[0]}~${gameLength().turns[1]}턴 안에 자연스러운 결말(victory 또는 defeat)에 도달하도록 전개하세요. (플레이어가 선택한 게임 길이: ${gameLength().name} · 약 ${gameLength().time})
+- 매 턴 사용자 메시지에 포함된 [진행도] 안내에 맞춰 이야기의 완급을 조절하세요. 목표 턴 범위를 초과하면 새 갈등을 만들지 말고 신속하게 결말을 지으세요.
 - 플레이어가 2인일 경우 두 캐릭터 모두 이야기에 참여시키고, 행동한 플레이어를 중심으로 서술하세요.
 - 플레이어의 자유 입력이 불가능하거나 세계관에 어긋나면, 시도가 실패하는 과정을 재미있게 묘사하세요. 절대 플레이어를 대신해 결정하지 마세요.
 
@@ -252,8 +294,8 @@ async function sendToGM(playerText, { isSystemEvent = false } = {}) {
   if (G.gameOver) return;
 
   const content = isSystemEvent
-    ? playerText
-    : `[${G.players[G.activePlayer].name}의 행동] ${playerText}\n\n(현재 상태: ${partySnapshot()} / 위치: ${G.location} / ${G.turn}번째 턴)`;
+    ? `${playerText}\n[진행도] ${pacingNote()}`
+    : `[${G.players[G.activePlayer].name}의 행동] ${playerText}\n\n(현재 상태: ${partySnapshot()} / 위치: ${G.location} / ${G.turn}번째 턴)\n[진행도] ${pacingNote()}`;
 
   G.history.push({ role: 'user', content });
 
@@ -328,8 +370,8 @@ function resolveDiceCheck(rollValue) {
   const p = G.players[G.activePlayer];
   const mod = statMod(p.stats[dc.stat]);
   const total = rollValue + mod;
-  const crit = rollValue === 20;
-  const fumble = rollValue === 1;
+  const crit = rollValue >= critMin();
+  const fumble = rollValue <= fumbleMax();
   const success = crit || (!fumble && total >= dc.difficulty);
 
   let resultText;
@@ -347,7 +389,12 @@ function resolveDiceCheck(rollValue) {
   });
 
   const logLine = `🎲 ${p.name}의 ${STAT_NAMES[dc.stat]} 판정: d20 [${rollValue}] ${fmtMod(mod)} = ${total} vs 난이도 ${dc.difficulty} → ${resultText}`;
-  const gmMessage = `[주사위 판정 결과] ${p.name}의 ${STAT_NAMES[dc.stat]}(${dc.stat}) 판정: d20에서 ${rollValue}가 나왔고 보정치 ${fmtMod(mod)}를 더해 총 ${total}. 난이도 ${dc.difficulty} 대비 ${resultText} ${crit ? '(대성공: 기대 이상의 극적인 결과로 묘사)' : ''}${fumble ? '(대실패: 예상치 못한 불운한 결과로 묘사)' : ''} 이 결과를 반영해 이야기를 이어가 주세요.`;
+  const dopaNote = crit && rollValue < 20
+    ? ` (도파민 모드 적용: 주사위 눈 ${rollValue}는 대성공 범위 ${critMin()}~20에 해당하여 난이도와 무관하게 대성공입니다)`
+    : fumble && rollValue > 1
+      ? ` (도파민 모드 적용: 주사위 눈 ${rollValue}는 대실패 범위 1~${fumbleMax()}에 해당하여 난이도와 무관하게 대실패입니다)`
+      : '';
+  const gmMessage = `[주사위 판정 결과] ${p.name}의 ${STAT_NAMES[dc.stat]}(${dc.stat}) 판정: d20에서 ${rollValue}가 나왔고 보정치 ${fmtMod(mod)}를 더해 총 ${total}. 난이도 ${dc.difficulty} 대비 ${resultText}${dopaNote} ${crit ? '(대성공: 기대 이상의 극적인 결과로 묘사)' : ''}${fumble ? '(대실패: 예상치 못한 불운한 결과로 묘사)' : ''} 이 결과를 반영해 이야기를 이어가 주세요.`;
 
   G.pendingDiceCheck = null;
   return { logLine, gmMessage, success };
@@ -376,6 +423,9 @@ function loadGame() {
     if (!Array.isArray(data.actionLog)) data.actionLog = [];
     if (typeof data.playTimeMs !== 'number') data.playTimeMs = 0;
     if (!data.startedAt) data.startedAt = Date.now();
+    if (!GAME_LENGTHS[data.lengthKey]) data.lengthKey = 'standard';
+    if (typeof data.dopamine !== 'number') data.dopamine = 0;
+    data.dopamine = Math.max(0, Math.min(DOPAMINE_MAX, data.dopamine));
     data.sessionStartAt = null;
     return data;
   } catch (e) { return null; }

@@ -105,7 +105,8 @@ const Archive = (() => {
     const date = new Date(G.startedAt || Date.now());
     const dateStr = `${date.getFullYear()}.${String(date.getMonth() + 1).padStart(2, '0')}.${String(date.getDate()).padStart(2, '0')}`;
     const gmName = (typeof PROVIDERS !== 'undefined' && PROVIDERS[G.provider]) ? PROVIDERS[G.provider].name : G.provider;
-    line(`세계관: ${themeName()}  ·  ${dateStr}  ·  GM: ${gmName}`, 14, C.gray, { align: 'center', gap: 4 });
+    const dopaTag = G.dopamine > 0 ? `  ·  ⚡도파민 ${G.dopamine >= DOPAMINE_MAX ? 'MAX' : 'Lv.' + G.dopamine}` : '';
+    line(`세계관: ${themeName()}  ·  ${dateStr}  ·  GM: ${gmName}${dopaTag}`, 14, C.gray, { align: 'center', gap: 4 });
     y += 10;
     divider();
 
@@ -267,9 +268,10 @@ const Archive = (() => {
     const victory = G.gameOver && G.gameOver.type === 'victory';
     const names = G.players.map(p => `${p.name}(${p.cls})`).join(', ');
     const rate = s.successRate === null ? '─' : `${s.successRate}%`;
+    const dopa = G.dopamine > 0 ? ` · ⚡도파민 ${G.dopamine >= DOPAMINE_MAX ? 'MAX' : 'Lv.' + G.dopamine}` : '';
     return [
       `🎲 RETRO QUEST — ${themeName()} 모험 ${victory ? '완수! ★' : '실패... ✖'}`,
-      `⏱ ${s.playTimeText} · ${s.turns}턴 · 주사위 성공률 ${rate}`,
+      `⏱ ${s.playTimeText} · ${s.turns}턴 · 주사위 성공률 ${rate}${dopa}`,
       `파티: ${names}`,
       'AI 게임 마스터와 함께하는 레트로 TRPG, 당신도 도전해 보세요!',
     ].join('\n');
