@@ -48,6 +48,45 @@ function newGameState() {
     pendingChoices: [],
     pendingDiceCheck: null,
     gameOver: null,
+    startedAt: Date.now(),
+    playTimeMs: 0,       // 저장 시점까지 누적된 플레이 시간
+    sessionStartAt: null, // 이번 세션 시작 시각 (저장 안 됨)
+    actionLog: [],       // 아카이브용 [{turn, player, text, kind:'choice'|'input'|'dice'}]
+    stats: { choices: 0, inputs: 0, rolls: 0, successes: 0, crits: 0, fumbles: 0 },
+  };
+}
+
+/* ── 플레이 타임 ── */
+function currentPlayTimeMs() {
+  const base = G.playTimeMs || 0;
+  return base + (G.sessionStartAt ? Date.now() - G.sessionStartAt : 0);
+}
+
+function fmtPlayTime(ms) {
+  const totalSec = Math.max(0, Math.floor(ms / 1000));
+  const h = Math.floor(totalSec / 3600);
+  const m = Math.floor((totalSec % 3600) / 60);
+  const s = totalSec % 60;
+  if (h > 0) return `${h}시간 ${m}분`;
+  if (m > 0) return `${m}분 ${s}초`;
+  return `${s}초`;
+}
+
+/* ── 엔딩 통계 집계 ── */
+function computeEndStats() {
+  const st = G.stats || {};
+  const rolls = st.rolls || 0;
+  return {
+    playTimeMs: currentPlayTimeMs(),
+    playTimeText: fmtPlayTime(currentPlayTimeMs()),
+    turns: Math.max(1, G.turn - 1),
+    choices: st.choices || 0,
+    inputs: st.inputs || 0,
+    rolls,
+    successes: st.successes || 0,
+    successRate: rolls ? Math.round(((st.successes || 0) / rolls) * 100) : null,
+    crits: st.crits || 0,
+    fumbles: st.fumbles || 0,
   };
 }
 
@@ -298,6 +337,15 @@ function resolveDiceCheck(rollValue) {
   else if (fumble) resultText = '대실패...';
   else resultText = success ? '성공!' : '실패...';
 
+  G.stats.rolls++;
+  if (success) G.stats.successes++;
+  if (crit) G.stats.crits++;
+  if (fumble) G.stats.fumbles++;
+  G.actionLog.push({
+    turn: G.turn, player: p.name, kind: 'dice',
+    text: `${STAT_NAMES[dc.stat]} 판정 d20[${rollValue}]${fmtMod(mod)}=${total} vs ${dc.difficulty} → ${resultText}`,
+  });
+
   const logLine = `🎲 ${p.name}의 ${STAT_NAMES[dc.stat]} 판정: d20 [${rollValue}] ${fmtMod(mod)} = ${total} vs 난이도 ${dc.difficulty} → ${resultText}`;
   const gmMessage = `[주사위 판정 결과] ${p.name}의 ${STAT_NAMES[dc.stat]}(${dc.stat}) 판정: d20에서 ${rollValue}가 나왔고 보정치 ${fmtMod(mod)}를 더해 총 ${total}. 난이도 ${dc.difficulty} 대비 ${resultText} ${crit ? '(대성공: 기대 이상의 극적인 결과로 묘사)' : ''}${fumble ? '(대실패: 예상치 못한 불운한 결과로 묘사)' : ''} 이 결과를 반영해 이야기를 이어가 주세요.`;
 
@@ -311,6 +359,8 @@ function saveGame() {
   try {
     const data = { ...G };
     if (!shouldSaveKey()) data.apiKey = '';
+    data.playTimeMs = currentPlayTimeMs();
+    data.sessionStartAt = null;
     localStorage.setItem(SAVE_KEY, JSON.stringify(data));
   } catch (e) { /* 저장 실패는 치명적이지 않음 */ }
 }
@@ -321,6 +371,12 @@ function loadGame() {
     if (!raw) return null;
     const data = JSON.parse(raw);
     if (!data.players || !data.history) return null;
+    // 구버전 세이브 호환
+    if (!data.stats) data.stats = { choices: 0, inputs: 0, rolls: 0, successes: 0, crits: 0, fumbles: 0 };
+    if (!Array.isArray(data.actionLog)) data.actionLog = [];
+    if (typeof data.playTimeMs !== 'number') data.playTimeMs = 0;
+    if (!data.startedAt) data.startedAt = Date.now();
+    data.sessionStartAt = null;
     return data;
   } catch (e) { return null; }
 }

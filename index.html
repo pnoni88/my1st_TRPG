@@ -157,7 +157,24 @@
       <pre id="gameover-art"></pre>
       <h2 id="gameover-title"></h2>
       <p id="gameover-epilogue"></p>
-      <button id="btn-to-title" class="menu-btn">&gt; 타이틀로 돌아가기</button>
+
+      <div class="go-section">
+        <h3 class="go-section-title">░ 모험 결산 ░</h3>
+        <div id="gameover-stats"></div>
+      </div>
+
+      <div class="go-section">
+        <h3 class="go-section-title">░ 선택의 기록 ░</h3>
+        <div id="gameover-archive"></div>
+      </div>
+
+      <div class="gameover-actions">
+        <button id="btn-save-card" class="menu-btn primary">▼ 기록 카드 저장 (PNG)</button>
+        <button id="btn-share" class="menu-btn">↗ 결과 공유하기</button>
+        <button id="btn-to-title" class="menu-btn">&gt; 타이틀로 돌아가기</button>
+      </div>
+      <p id="share-status"></p>
+      <textarea id="share-fallback" readonly style="display:none"></textarea>
     </div>
   </div>
 </div>
@@ -166,6 +183,7 @@
 <script src="js/api.js"></script>
 <script src="js/game.js"></script>
 <script src="js/ui.js"></script>
+<script src="js/archive.js"></script>
 <script src="js/main.js"></script>
 </body>
 </html>

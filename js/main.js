@@ -257,6 +257,7 @@
   }
 
   function enterGameScreen({ restored }) {
+    G.sessionStartAt = Date.now();
     UI.showScreen('screen-game');
     UI.hideGameOver();
     if (restored) {
@@ -273,10 +274,10 @@
 
   /* ────── 게임 화면 조작 ────── */
   $('btn-send').addEventListener('click', () => {
-    UI.submitAction($('inp-action').value);
+    UI.submitAction($('inp-action').value, 'input');
   });
   $('inp-action').addEventListener('keydown', e => {
-    if (e.key === 'Enter') UI.submitAction($('inp-action').value);
+    if (e.key === 'Enter') UI.submitAction($('inp-action').value, 'input');
   });
 
   $('btn-roll-check').addEventListener('click', () => UI.rollCheckDice());
@@ -301,6 +302,51 @@
     UI.hideGameOver();
     refreshTitleButtons();
     UI.showScreen('screen-title');
+  });
+
+  /* ────── 엔딩: 기록 카드 저장 / 공유 ────── */
+  const shareStatus = $('share-status');
+
+  $('btn-save-card').addEventListener('click', async () => {
+    const btn = $('btn-save-card');
+    btn.disabled = true;
+    shareStatus.textContent = '기록 카드를 생성하는 중...';
+    try {
+      await Archive.downloadCard();
+      RetroAudio.confirm();
+      shareStatus.textContent = '✔ PNG 기록 카드가 저장되었습니다.';
+    } catch (e) {
+      shareStatus.textContent = '⚠ ' + (e.message || '카드 생성에 실패했습니다.');
+    }
+    btn.disabled = false;
+  });
+
+  $('btn-share').addEventListener('click', async () => {
+    const btn = $('btn-share');
+    btn.disabled = true;
+    shareStatus.textContent = '공유 준비 중...';
+    try {
+      const r = await Archive.shareResult();
+      if (r.method === 'clipboard') {
+        RetroAudio.confirm();
+        shareStatus.textContent = '✔ 결과가 클립보드에 복사되었습니다. 친구에게 붙여넣기 하세요!';
+      } else if (r.method === 'manual') {
+        shareStatus.textContent = '자동 복사가 지원되지 않는 환경입니다. 아래 텍스트를 직접 복사해 주세요.';
+        const ta = $('share-fallback');
+        ta.value = r.text;
+        ta.style.display = 'block';
+        ta.focus();
+        ta.select();
+      } else if (r.method === 'cancel') {
+        shareStatus.textContent = '';
+      } else {
+        RetroAudio.confirm();
+        shareStatus.textContent = '✔ 공유되었습니다.';
+      }
+    } catch (e) {
+      shareStatus.textContent = '⚠ ' + (e.message || '공유에 실패했습니다.');
+    }
+    btn.disabled = false;
   });
 
   /* ────── 초기화 ────── */

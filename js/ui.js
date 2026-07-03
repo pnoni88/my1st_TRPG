@@ -165,7 +165,7 @@ const UI = (() => {
         btn.textContent = c;
         btn.addEventListener('click', () => {
           RetroAudio.select();
-          submitAction(c);
+          submitAction(c, 'choice');
         });
         choicesBox.appendChild(btn);
       }
@@ -174,9 +174,12 @@ const UI = (() => {
   }
 
   /* ── 행동 제출 (선택지/자유입력 공용) ── */
-  function submitAction(text) {
+  function submitAction(text, kind = 'input') {
     if (!text.trim() || G.gameOver) return;
-    addLog('player', `${G.players[G.activePlayer].name}: ${text}`);
+    const playerName = G.players[G.activePlayer].name;
+    G.actionLog.push({ turn: G.turn, player: playerName, text: text.trim(), kind });
+    if (kind === 'choice') G.stats.choices++; else G.stats.inputs++;
+    addLog('player', `${playerName}: ${text}`);
     addDivider();
     $('choices-box').innerHTML = '';
     $('inp-action').value = '';
@@ -263,8 +266,43 @@ const UI = (() => {
     title.textContent = go.type === 'victory' ? '★ THE END — 모험 완수! ★' : '— GAME OVER —';
     title.className = go.type;
     $('gameover-epilogue').textContent = go.epilogue || '';
+    renderEndStats();
+    renderArchive();
+    $('share-status').textContent = '';
+    $('share-fallback').style.display = 'none';
     overlay.style.display = 'flex';
     if (go.type === 'victory') RetroAudio.victory(); else RetroAudio.defeat();
+  }
+
+  /* ── 엔딩 통계 렌더링 ── */
+  function renderEndStats() {
+    const s = computeEndStats();
+    const rows = [
+      ['⏱ 플레이 타임', s.playTimeText],
+      ['◈ 진행 턴', `${s.turns}턴`],
+      ['▸ 선택지 선택', `${s.choices}회`],
+      ['» 직접 행동', `${s.inputs}회`],
+      ['🎲 주사위 판정', `${s.rolls}회`],
+      ['★ 판정 성공률', s.successRate === null ? '─' : `${s.successRate}%`],
+      ['‼ 대성공 / 대실패', `${s.crits}회 / ${s.fumbles}회`],
+    ];
+    $('gameover-stats').innerHTML = rows.map(([k, v]) =>
+      `<div class="stat-row"><span class="stat-k">${esc(k)}</span><span class="stat-dots"></span><span class="stat-v">${esc(v)}</span></div>`
+    ).join('');
+  }
+
+  /* ── 선택 아카이브 렌더링 ── */
+  function renderArchive() {
+    const box = $('gameover-archive');
+    if (!G.actionLog.length) {
+      box.innerHTML = '<div class="arc-empty">기록된 행동이 없습니다.</div>';
+      return;
+    }
+    box.innerHTML = G.actionLog.map(e => {
+      const mark = e.kind === 'dice' ? '🎲' : e.kind === 'choice' ? '▸' : '»';
+      const who = e.kind === 'dice' ? '' : `<span class="arc-who">${esc(e.player)}</span> `;
+      return `<div class="arc-entry arc-${e.kind}"><span class="arc-turn">T${e.turn}</span> ${mark} ${who}${esc(e.text)}</div>`;
+    }).join('');
   }
 
   function hideGameOver() { $('gameover-overlay').style.display = 'none'; }
